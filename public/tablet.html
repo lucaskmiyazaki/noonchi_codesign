@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tablet Display</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #111;
+      color: white;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    .emotion {
+      font-size: 72px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .phone {
+      margin-top: 10px;
+      font-size: 24px;
+      opacity: 0.9;
+    }
+
+    .status {
+      margin-top: 6px;
+      font-size: 16px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="emotion" id="emotion">NEUTRAL</div>
+    <div class="phone" id="phone">—</div>
+    <div class="status" id="status">connecting...</div>
+  </div>
+
+<script>
+  const pollingTime = 200
+
+  const emotionEl = document.getElementById("emotion");
+  const phoneEl = document.getElementById("phone");
+  const statusEl = document.getElementById("status");
+
+  async function poll() {
+    try {
+      const res = await fetch("/state");
+      const state = await res.json();
+
+      let activePhone = null;
+      let activeEmotion = "neutral";
+
+      for (const id in state) {
+        const e = state[id].emotion;
+        if (e && e !== "neutral") {
+          activePhone = id;
+          activeEmotion = e;
+          break;
+        }
+      }
+
+      if (!activePhone) {
+        activeEmotion = "neutral";
+        phoneEl.innerText = "none";
+      } else {
+        phoneEl.innerText = state[activePhone].nickname || activePhone;
+      }
+
+      emotionEl.innerText = activeEmotion.toUpperCase();
+      statusEl.innerText = "connected";
+
+    } catch (e) {
+      emotionEl.innerText = "—";
+      phoneEl.innerText = "—";
+      statusEl.innerText = "disconnected";
+    }
+  }
+
+  setInterval(poll, 1000);
+  poll();
+</script>
+
+</body>
+</html>

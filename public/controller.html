@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Emotion Controller</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    #toggle {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    #container {
+      display: flex;
+      gap: 20px;
+    }
+
+    .column {
+      border: 1px solid #ddd;
+      padding: 12px;
+      border-radius: 8px;
+      width: 200px;
+      text-align: center;
+    }
+
+    .column h2 {
+      margin: 0 0 10px 0;
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      margin: 6px 0;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #f0f0f0;
+    }
+
+    button.active {
+      background: #4caf50;
+      color: white;
+      border-color: #3e8e41;
+    }
+
+    .modeBtn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      background: #f0f0f0;
+    }
+
+    .modeBtn.active {
+      background: #4caf50;
+      color: white;
+      border-color: #3e8e41;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toggle">
+    <button class="modeBtn active" id="tabletBtn">Tablet</button>
+    <button class="modeBtn" id="phoneBtn">Phone</button>
+  </div>
+
+  <div id="container"></div>
+
+<script>
+  const phones = ["phone_1", "phone_2", "phone_3", "phone_4"];
+  const emotions = ["happy", "sad", "angry", "neutral"];
+  const pollingTime = 200
+
+  const container = document.getElementById("container");
+  const titles = {};
+  let mode = "tablet"; // default
+
+  // Toggle buttons
+  document.getElementById("tabletBtn").onclick = () => setMode("tablet");
+  document.getElementById("phoneBtn").onclick = () => setMode("phone");
+
+  function setMode(newMode) {
+    mode = newMode;
+    document.getElementById("tabletBtn").classList.toggle("active", mode === "tablet");
+    document.getElementById("phoneBtn").classList.toggle("active", mode === "phone");
+  }
+
+  // Generate phone columns
+  phones.forEach(phoneId => {
+    const column = document.createElement("div");
+    column.className = "column";
+    column.id = phoneId;
+
+    const title = document.createElement("h2");
+    title.innerText = phoneId.toUpperCase();
+    title.onclick = () => editNickname(phoneId);
+
+    titles[phoneId] = title;
+
+    column.appendChild(title);
+
+    emotions.forEach(emotion => {
+      const btn = document.createElement("button");
+      btn.id = `${phoneId}_${emotion}`;
+      btn.innerText = emotion.charAt(0).toUpperCase() + emotion.slice(1);
+      btn.onclick = () => setEmotion(phoneId, emotion);
+      column.appendChild(btn);
+    });
+
+    container.appendChild(column);
+  });
+
+  async function setEmotion(id, emotion) {
+    // Tablet resets all
+    if (mode === "tablet") {
+      await fetch("/reset", { method: "POST" });
+    }
+
+    // Set emotion for chosen device
+    await fetch("/emotion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, emotion })
+    });
+
+    updateHighlight(id, emotion);
+  }
+
+  async function editNickname(id) {
+    const newNickname = prompt("Enter new nickname:");
+    if (!newNickname) return;
+
+    const res = await fetch(`/emotion/${id}`);
+    const current = await res.json();
+
+    await fetch("/emotion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        emotion: current.emotion,
+        nickname: newNickname
+      })
+    });
+  }
+
+  async function pollState() {
+    const res = await fetch("/state");
+    const state = await res.json();
+
+    phones.forEach(id => {
+      const emotion = state[id]?.emotion || "neutral";
+      const nickname = state[id]?.nickname || id;
+
+      titles[id].innerText = nickname;
+      updateHighlight(id, emotion);
+    });
+  }
+
+  function updateHighlight(id, emotion) {
+    emotions.forEach(e => {
+      const btn = document.getElementById(`${id}_${e}`);
+      if (btn) btn.classList.toggle("active", e === emotion);
+    });
+  }
+
+  setInterval(pollState, 500);
+  pollState();
+</script>
+
+</body>
+</html>

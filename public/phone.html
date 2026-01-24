@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phone Display</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #111;
+      color: white;
+    }
+
+    .emotion {
+      font-size: 72px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .nickname {
+      margin-top: 8px;
+      font-size: 26px;
+      opacity: 0.9;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 18px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+  <div>
+    <div class="emotion" id="emotion">NEUTRAL</div>
+    <div class="nickname" id="nickname">Phone</div>
+    <div class="status" id="status">loading...</div>
+  </div>
+
+<script>
+
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  const emotionEl = document.getElementById("emotion");
+  const nicknameEl = document.getElementById("nickname");
+  const statusEl = document.getElementById("status");
+
+  async function poll() {
+    try {
+      const res = await fetch(`/emotion/${id}`);
+      if (!res.ok) throw new Error("not found");
+
+      const data = await res.json();
+
+      // show emotion
+      emotionEl.innerText = data.emotion.toUpperCase();
+
+      // show nickname if exists, otherwise show ID
+      nicknameEl.innerText = data.nickname || id;
+
+      // show connection status
+      statusEl.innerText = "connected";
+
+      const age = Date.now() - data.updated_at;
+      if (age > 5000) {
+        statusEl.innerText = "stale";
+      }
+
+    } catch (e) {
+      emotionEl.innerText = "—";
+      nicknameEl.innerText = id;
+      statusEl.innerText = "disconnected";
+    }
+  }
+
+  setInterval(poll, 1000);
+  poll();
+</script>
+
+</body>
+</html>
