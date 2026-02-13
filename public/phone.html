@@ -45,6 +45,7 @@
 
 <script>
 
+  const pollingTime = 200
   const params = new URLSearchParams(location.search);
   const id = params.get("id");
   const emotionEl = document.getElementById("emotion");
@@ -79,7 +80,7 @@
     }
   }
 
-  setInterval(poll, 1000);
+  setInterval(poll, pollingTime);
   poll();
 </script>
 

@@ -17,6 +17,7 @@
 
     .container {
       text-align: center;
+      position: relative;
     }
 
     .emotion {
@@ -26,10 +27,28 @@
       letter-spacing: 2px;
     }
 
+    .phone {
+      margin-top: 10px;
+      font-size: 70px;
+      opacity: 0.9;
+    }
+
     .status {
       margin-top: 6px;
       font-size: 16px;
       opacity: 0.6;
+    }
+
+    /* ARROW */
+    .arrow {
+      margin: 40px auto;
+      font-size: 200px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+    }
+
+    .show {
+      opacity: 1;
     }
   </style>
 </head>
@@ -37,14 +56,26 @@
 
   <div class="container">
     <div class="emotion" id="emotion">NEUTRAL</div>
+
+    <div class="arrow" id="arrow">➤</div>
+
+    <div class="phone" id="phone">—</div>
     <div class="status" id="status">connecting...</div>
   </div>
 
 <script>
   const pollingTime = 200
-
   const emotionEl = document.getElementById("emotion");
+  const phoneEl = document.getElementById("phone");
   const statusEl = document.getElementById("status");
+  const arrowEl = document.getElementById("arrow");
+
+  const arrowRotation = {
+    phone_1: 0,   // ↗
+    phone_2: -90,    // ↘
+    phone_3: -180,   // ↙
+    phone_4: -270   // ↖
+  };
 
   async function poll() {
     try {
@@ -55,24 +86,32 @@
       let activeEmotion = "neutral";
 
       for (const id in state) {
-        const e = state[id].emotion;
-        if (e && e !== "neutral") {
+        if (state[id].emotion && state[id].emotion !== "neutral") {
           activePhone = id;
-          activeEmotion = e;
+          activeEmotion = state[id].emotion;
           break;
         }
       }
 
       if (!activePhone) {
-        activeEmotion = "neutral";
+        emotionEl.innerText = "NEUTRAL";
+        phoneEl.innerText = "none";
+        arrowEl.classList.remove("show");
       } else {
+        emotionEl.innerText = activeEmotion.toUpperCase();
+        phoneEl.innerText = state[activePhone].nickname || activePhone;
+
+        const rotation = arrowRotation[activePhone] ?? 0;
+        arrowEl.style.transform = `rotate(${rotation}deg)`;
+        arrowEl.classList.add("show");
       }
 
-      emotionEl.innerText = activeEmotion.toUpperCase();
       statusEl.innerText = "connected";
 
     } catch (e) {
       emotionEl.innerText = "—";
+      phoneEl.innerText = "—";
+      arrowEl.classList.remove("show");
       statusEl.innerText = "disconnected";
     }
   }
