@@ -29,27 +29,63 @@ def set_emotion():
     nickname = data.get("nickname")
 
     if not device_id:
-        return jsonify({"error": "id are required"}), 400
+        return jsonify({"error": "id is required"}), 400
 
-    # if device does not exist yet, create empty default
+    # create default only once
     if device_id not in state:
-        state[device_id] = {"emotion": "neutral", "nickname": "", "updated_at": now_ms()}
+        state[device_id] = {
+            "emotion": "neutral",
+            "nickname": "",
+            "speaker": False,
+            "updated_at": now_ms()
+        }
 
-    # if emotion is missing, keep previous one
-    if not emotion:
-        emotion = state[device_id]["emotion"]
-
-    # if nickname is missing, keep previous one
-    if not nickname:
-        nickname = state[device_id]["nickname"]
+    current = state[device_id]
 
     state[device_id] = {
-        "emotion": emotion,
-        "nickname": nickname,
+        "emotion": emotion if emotion is not None else current.get("emotion", "neutral"),
+        "nickname": nickname if nickname is not None else current.get("nickname", ""),
+        "speaker": current.get("speaker", False),
         "updated_at": now_ms()
     }
 
     return jsonify({"status": "ok"}), 200
+
+@app.get("/emotion/speaker")
+def get_emotion_speaker():
+    for device_id, device_data in state.items():
+        if device_data.get("speaker", False):
+            return jsonify({
+                "id": device_id,
+                "nickname": device_data.get("nickname", ""),
+                "emotion": device_data.get("emotion", "neutral"),
+                "updated_at": device_data.get("updated_at")
+            }), 200
+
+    return jsonify({"error": "no speaker selected"}), 404
+
+@app.post("/speaker/<device_id>")
+def set_speaker(device_id):
+    # if device does not exist yet, create it
+    if device_id not in state:
+        state[device_id] = {
+            "emotion": "neutral",
+            "nickname": "",
+            "speaker": False,
+            "updated_at": now_ms()
+        }
+
+    # only one speaker at a time
+    for other_device_id in state:
+        state[other_device_id]["speaker"] = False
+
+    state[device_id]["speaker"] = True
+    state[device_id]["updated_at"] = now_ms()
+
+    return jsonify({
+        "status": "ok",
+        "speaker": device_id
+    }), 200
 
 @app.get("/state")
 def get_state():

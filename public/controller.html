@@ -67,6 +67,17 @@
       color: white;
       border-color: #3e8e41;
     }
+
+    .speakerBtn {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .speakerBtn.active {
+      background: #2196f3;
+      color: white;
+      border-color: #1976d2;
+    }
   </style>
 </head>
 <body>
@@ -80,12 +91,13 @@
 
 <script>
   const phones = ["phone_1", "phone_2", "phone_3", "phone_4"];
-  //const emotions = ["Afraid", "Angry", "Bored", "Confident", "Connected", "Content", "Discouraged", "Disgusted", "Envious", "Frustrated", "Guilty", "Happy", "Indifferent", "Inspired", "Interested", "Miserable", "Overwhelmed", "Passionate", "Proud", "Respected", "Safe", "Stressed", "Tense"];
+  // const emotions = ["Afraid", "Angry", "Bored", "Confident", "Connected", "Content", "Discouraged", "Disgusted", "Envious", "Frustrated", "Guilty", "Happy", "Indifferent", "Inspired", "Interested", "Miserable", "Overwhelmed", "Passionate", "Proud", "Respected", "Safe", "Stressed", "Tense"];
   const emotions = ["Frustrated😤", "Excited🥳", "impressed😲", "Regretful😔", "Confused🤔", "Concerned😬", "Relieved😅", "Tired😴", "neutral"];
-  const pollingTime = 200
+  const pollingTime = 200;
 
   const container = document.getElementById("container");
   const titles = {};
+  const speakerButtons = {};
   let mode = "tablet"; // default
 
   // Toggle buttons
@@ -104,12 +116,20 @@
     column.className = "column";
     column.id = phoneId;
 
+    const speakerBtn = document.createElement("button");
+    speakerBtn.className = "speakerBtn";
+    speakerBtn.id = `speaker_${phoneId}`;
+    speakerBtn.innerText = "Not speaker";
+    speakerBtn.onclick = () => setSpeaker(phoneId);
+
+    speakerButtons[phoneId] = speakerBtn;
+    column.appendChild(speakerBtn);
+
     const title = document.createElement("h2");
     title.innerText = phoneId.toUpperCase();
     title.onclick = () => editNickname(phoneId);
 
     titles[phoneId] = title;
-
     column.appendChild(title);
 
     emotions.forEach(emotion => {
@@ -139,6 +159,14 @@
     updateHighlight(id, emotion);
   }
 
+  async function setSpeaker(id) {
+    await fetch(`/speaker/${id}`, {
+      method: "POST"
+    });
+
+    pollState();
+  }
+
   async function editNickname(id) {
     const newNickname = prompt("Enter new nickname:");
     if (!newNickname) return;
@@ -164,9 +192,11 @@
     phones.forEach(id => {
       const emotion = state[id]?.emotion || "neutral";
       const nickname = state[id]?.nickname || id;
+      const isSpeaker = state[id]?.speaker || false;
 
       titles[id].innerText = nickname;
       updateHighlight(id, emotion);
+      updateSpeakerButton(id, isSpeaker);
     });
   }
 
@@ -177,7 +207,15 @@
     });
   }
 
-  setInterval(pollState, 500);
+  function updateSpeakerButton(id, isSpeaker) {
+    const btn = speakerButtons[id];
+    if (!btn) return;
+
+    btn.classList.toggle("active", isSpeaker);
+    btn.innerText = isSpeaker ? "Speaker" : "Not speaker";
+  }
+
+  setInterval(pollState, pollingTime);
   pollState();
 </script>
 
