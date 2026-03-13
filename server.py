@@ -2,6 +2,7 @@ import subprocess
 import time
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
+import requests
 
 app = Flask(__name__, static_folder="public")
 
@@ -69,15 +70,30 @@ def serve_file(path):
 
 def start_ngrok():
     # Starts ngrok and prints the public URL
-    ngrok = subprocess.Popen(["ngrok", "http", "5001"],
+    ngrok = subprocess.Popen(["ngrok", "http", "5001", "--scheme=http,https"],
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
 
     # Wait for ngrok to start
     time.sleep(2)
 
-    # Print the URL (it will show in your console)
-    print("ngrok started. Check your terminal for the public URL.")
+    time.sleep(3)
+
+    try:
+        r = requests.get("http://127.0.0.1:4040/api/tunnels")
+        tunnels = r.json()["tunnels"]
+
+        print("\n===== NGROK URLS =====")
+
+        for t in tunnels:
+            proto = t["proto"]
+            url = t["public_url"]
+            print(f"{proto.upper()} URL: {url}")
+
+        print("======================\n")
+
+    except Exception as e:
+        print("Could not get ngrok URL:", e)
 
 if __name__ == "__main__":
     start_ngrok()
