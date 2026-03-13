@@ -11,50 +11,23 @@ state = {}
 def now_ms():
     return int(datetime.utcnow().timestamp() * 1000)
 
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"}), 200
-
-@app.get("/emotion/<device_id>")
-def get_emotion(device_id):
-    if device_id not in state:
-        return jsonify({"error": "not found"}), 404
-    return jsonify(state[device_id]), 200
-
-@app.post("/emotion")
-def set_emotion():
-    data = request.get_json()
-    device_id = data.get("id")
-    emotion = data.get("emotion")
-    nickname = data.get("nickname")
-
-    if not device_id:
-        return jsonify({"error": "id is required"}), 400
-
-    # create default only once
-    if device_id not in state:
-        state[device_id] = {
-            "emotion": "neutral",
-            "nickname": "",
-            "speaker": False,
-            "updated_at": now_ms()
-        }
-
-    current = state[device_id]
-
-    state[device_id] = {
-        "emotion": emotion if emotion is not None else current.get("emotion", "neutral"),
-        "nickname": nickname if nickname is not None else current.get("nickname", ""),
-        "speaker": current.get("speaker", False),
+def default_device():
+    return {
+        "emotion": "neutral",
+        "nickname": "",
+        "speaker": False,
+        "active": True,
         "updated_at": now_ms()
     }
 
+@app.get("/health")
+def health():
     return jsonify({"status": "ok"}), 200
 
 @app.get("/emotion/speaker")
 def get_emotion_speaker():
     for device_id, device_data in state.items():
-        if device_data.get("speaker", False):
+        if device_data.get("active", True) and device_data.get("speaker", False):
             return jsonify({
                 "id": device_id,
                 "nickname": device_data.get("nickname", ""),
@@ -62,18 +35,84 @@ def get_emotion_speaker():
                 "updated_at": device_data.get("updated_at")
             }), 200
 
-    return jsonify({"error": "no speaker selected"}), 404
+    return jsonify({"error": "no active speaker selected"}), 404
+
+@app.get("/emotion/<device_id>")
+def get_emotion(device_id):
+    if device_id not in state:
+        return jsonify({"error": "not found"}), 404
+
+    if not state[device_id].get("active", True):
+        return jsonify({"error": "not found"}), 404
+
+    return jsonify({
+        "emotion": state[device_id].get("emotion", "neutral"),
+        "nickname": state[device_id].get("nickname", ""),
+        "speaker": state[device_id].get("speaker", False),
+        "active": state[device_id].get("active", True),
+        "updated_at": state[device_id].get("updated_at")
+    }), 200
+
+@app.post("/emotion")
+def set_emotion():
+    data = request.get_json() or {}
+    device_id = data.get("id")
+    emotion = data.get("emotion")
+    nickname = data.get("nickname")
+
+    if not device_id:
+        return jsonify({"error": "id is required"}), 400
+
+    if device_id not in state:
+        state[device_id] = default_device()
+
+    current = state[device_id]
+
+    state[device_id] = {
+        "emotion": emotion if emotion is not None else current.get("emotion", "neutral"),
+        "nickname": nickname if nickname is not None else current.get("nickname", ""),
+        "speaker": current.get("speaker", False),
+        "active": current.get("active", True),
+        "updated_at": now_ms()
+    }
+
+    return jsonify({"status": "ok"}), 200
+
+@app.post("/active")
+def set_active():
+    data = request.get_json() or {}
+    device_id = data.get("id")
+    active = data.get("active")
+
+    if not device_id:
+        return jsonify({"error": "id is required"}), 400
+
+    if active is None:
+        return jsonify({"error": "active is required"}), 400
+
+    if device_id not in state:
+        state[device_id] = default_device()
+
+    state[device_id]["active"] = bool(active)
+    state[device_id]["updated_at"] = now_ms()
+
+    # if a device becomes inactive, it cannot remain speaker
+    if not state[device_id]["active"]:
+        state[device_id]["speaker"] = False
+
+    return jsonify({
+        "status": "ok",
+        "id": device_id,
+        "active": state[device_id]["active"]
+    }), 200
 
 @app.post("/speaker/<device_id>")
 def set_speaker(device_id):
-    # if device does not exist yet, create it
     if device_id not in state:
-        state[device_id] = {
-            "emotion": "neutral",
-            "nickname": "",
-            "speaker": False,
-            "updated_at": now_ms()
-        }
+        state[device_id] = default_device()
+
+    if not state[device_id].get("active", True):
+        return jsonify({"error": "device is inactive"}), 400
 
     # only one speaker at a time
     for other_device_id in state:
@@ -89,7 +128,12 @@ def set_speaker(device_id):
 
 @app.get("/state")
 def get_state():
-    return jsonify(state), 200
+    active_state = {
+        device_id: device_data
+        for device_id, device_data in state.items()
+        if device_data.get("active", True)
+    }
+    return jsonify(active_state), 200
 
 @app.post("/reset")
 def reset_state():
@@ -103,17 +147,13 @@ def reset_state():
 def serve_file(path):
     return send_from_directory("public", path)
 
-
 def start_ngrok():
     # Starts ngrok and prints the public URL
     ngrok = subprocess.Popen(["ngrok", "http", "5001", "--scheme=http,https"],
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
 
-    # Wait for ngrok to start
     time.sleep(2)
-
-    time.sleep(3)
 
     try:
         r = requests.get("http://127.0.0.1:4040/api/tunnels")

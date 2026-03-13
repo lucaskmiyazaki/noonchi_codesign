@@ -30,11 +30,23 @@
       border-radius: 8px;
       width: 200px;
       text-align: center;
+      background: white;
+      transition: background 0.2s, opacity 0.2s, border-color 0.2s;
+    }
+
+    .column.inactive {
+      background: #cfcfcf;
+      border-color: #999;
+      opacity: 0.75;
     }
 
     .column h2 {
       margin: 0 0 10px 0;
       cursor: pointer;
+    }
+
+    .column.inactive h2 {
+      color: #555;
     }
 
     button {
@@ -46,6 +58,13 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       background: #f0f0f0;
+      transition: background 0.2s, color 0.2s, opacity 0.2s, border-color 0.2s;
+    }
+
+    .column.inactive button {
+      background: #b8b8b8;
+      border-color: #8f8f8f;
+      color: #555;
     }
 
     button.active {
@@ -91,16 +110,15 @@
 
 <script>
   const phones = ["phone_1", "phone_2", "phone_3", "phone_4"];
-  // const emotions = ["Afraid", "Angry", "Bored", "Confident", "Connected", "Content", "Discouraged", "Disgusted", "Envious", "Frustrated", "Guilty", "Happy", "Indifferent", "Inspired", "Interested", "Miserable", "Overwhelmed", "Passionate", "Proud", "Respected", "Safe", "Stressed", "Tense"];
   const emotions = ["Frustrated😤", "Excited🥳", "impressed😲", "Regretful😔", "Confused🤔", "Concerned😬", "Relieved😅", "Tired😴", "neutral"];
   const pollingTime = 200;
 
   const container = document.getElementById("container");
   const titles = {};
   const speakerButtons = {};
-  let mode = "tablet"; // default
+  const columns = {};
+  let mode = "tablet";
 
-  // Toggle buttons
   document.getElementById("tabletBtn").onclick = () => setMode("tablet");
   document.getElementById("phoneBtn").onclick = () => setMode("phone");
 
@@ -110,11 +128,11 @@
     document.getElementById("phoneBtn").classList.toggle("active", mode === "phone");
   }
 
-  // Generate phone columns
   phones.forEach(phoneId => {
     const column = document.createElement("div");
     column.className = "column";
     column.id = phoneId;
+    columns[phoneId] = column;
 
     const speakerBtn = document.createElement("button");
     speakerBtn.className = "speakerBtn";
@@ -144,12 +162,10 @@
   });
 
   async function setEmotion(id, emotion) {
-    // Tablet resets all
     if (mode === "tablet") {
       await fetch("/reset", { method: "POST" });
     }
 
-    // Set emotion for chosen device
     await fetch("/emotion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -190,13 +206,17 @@
     const state = await res.json();
 
     phones.forEach(id => {
-      const emotion = state[id]?.emotion || "neutral";
-      const nickname = state[id]?.nickname || id;
-      const isSpeaker = state[id]?.speaker || false;
+      const device = state[id];
+      const isActive = !!device;
+
+      const emotion = device?.emotion || "neutral";
+      const nickname = device?.nickname || id;
+      const isSpeaker = device?.speaker || false;
 
       titles[id].innerText = nickname;
       updateHighlight(id, emotion);
       updateSpeakerButton(id, isSpeaker);
+      updateCardActive(id, isActive);
     });
   }
 
@@ -213,6 +233,13 @@
 
     btn.classList.toggle("active", isSpeaker);
     btn.innerText = isSpeaker ? "Speaker" : "Not speaker";
+  }
+
+  function updateCardActive(id, isActive) {
+    const column = columns[id];
+    if (!column) return;
+
+    column.classList.toggle("inactive", !isActive);
   }
 
   setInterval(pollState, pollingTime);
